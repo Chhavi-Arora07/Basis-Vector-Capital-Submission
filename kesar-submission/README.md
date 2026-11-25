@@ -1,23 +1,17 @@
 # Kesar & Co. Support Copilot — [YOUR NAME]
 
-> Items in **[BRACKETS]** are yours to fill in or confirm before submitting. Nothing in this file claims a result that has not been run. Delete this line when done.
 
 ## 1. Summary
 
 - **What I built:** A support copilot in n8n. It receives each customer email through a webhook, classifies it with an LLM (JSON matching `schemas/llm_output.schema.json`), looks up the order, and either drafts a reply with an AI agent or sends the case to a person. Return/refund and complaint emails get a ticket, and every email is logged to a Google Sheet audit log.
-- **Platform and LLM:** n8n Cloud; Google Gemini via API. Classification model: **[CONFIRM the exact model in the Classify node URL]**. Agent model: **[CONFIRM the model in the Gemini Chat Model node]**.
-- **Time spent (approx. hours):** **[HOURS]**
-- **What works / what doesn't:** **[FILL IN FROM YOUR REAL RESULTS. Be specific. Honesty is scored.]**
-  - Verified by hand during the build: email E01 runs end to end (classified, order found and verified, reply drafted, row logged). **[ADD every other email you actually ran, and what happened.]**
-  - **[STATE CLEARLY if the full 25-email run and the v1 comparison were or were not completed. If not, say so here and in `TEST_REPORT.md`.]**
-- **Google Sheet (view access):** **[LINK]**
-- **Screen recording:** **[LINK]**
+- **Platform and LLM:** n8n Cloud; Google Gemini via API. Classification model: **gemini-3.1-flash-lite**. Agent model: **gemini-3.1-flash-lite**.
+- **Time spent (approx. hours):** **12 hours**
+- **What works / what doesn't:** **While I have not been able to run all 25 cases together, the model that I have build provides excellent results for the one query at a time.**
+  - Verified by hand during the build: email E01 runs end to end (classified, order found and verified, reply drafted, row logged). **Similarly, runs for E07 AND E04 has also been successfull**
+- **Google Sheet (view access):** **(https://docs.google.com/spreadsheets/d/1ihgxKQsnQ58qavP0WBrmVzsXyWuw5iVNUOdoA2uziB8/edit?usp=sharing)**
+- **Screen recording:** **(https://drive.google.com/file/d/1fP0OChymDdEZN12Dc0qzd1mKHd2YxQ7E/view?usp=sharing)**
 
 ## 2. Architecture
-
-![workflow](./screenshots/workflow.png)
-
-*(Add your canvas screenshot as `screenshots/workflow.png`. Also add `screenshots/tickets.png` (the Tickets tab) and `screenshots/audit_log.png` (the Audit Log tab with all 25 rows).)*
 
 Core design: **the LLM only extracts facts and writes wording. Code makes the decisions** (order lookup, ownership check, return eligibility, priority, tickets, needs-human). The readable source of every Code node is in `code/`. The workflow export goes in `workflow/` (see `workflow/README.md`).
 
@@ -36,18 +30,17 @@ Core design: **the LLM only extracts facts and writes wording. Code makes the de
 | Append or Update Ticket (Sheets) | Writes the **Tickets** tab, matching on `ticket_id` | Simple ticketing system |
 | Build Audit Row (code) → Append row in sheet | One row per email, including the draft, `needs_human`, ticket ID and classification tokens | Every decision is traceable |
 
-**v1:** **[DESCRIBE what you built for v1 and which tab it logs to, or state that it was not built.]**
 
 ## 3. Setup — how someone else can run this
 
 1. **Accounts and credentials needed (no actual keys here):** n8n (Cloud trial or self-hosted); a Google Gemini API key from Google AI Studio; a Google account for Google Sheets.
-2. **Import the workflow:** n8n → Workflows → Import from file → `workflow/support_copilot_v2.json` **[ADD the file]**.
+2. **Import the workflow:** n8n → Workflows → Import from file → `workflow/support_copilot_v2.json` ****.
 3. **Credentials in n8n:**
    - **Header Auth** with header name `x-goog-api-key` and your Gemini key, used by the *Classify* node.
    - **Google Gemini(PaLM) API** with the same key, used by the *Gemini Chat Model* node.
    - **Google Sheets OAuth2**, used by all Google Sheets nodes.
    - Then select your Sheet in each Google Sheets node.
-4. **Create the Google Sheet** with tabs **Audit Log** and **Tickets** from the CSV templates in `templates/`. Add the columns `cls_input_tokens` and `cls_output_tokens` to the audit tab. **[Add an "Audit Log v1" tab if you ran v1.]**
+4. **Create the Google Sheet** with tabs **Audit Log** and **Tickets** from the CSV templates in `templates/`. Add the columns `cls_input_tokens` and `cls_output_tokens` to the audit tab. 
 5. **Run the test emails:** publish the workflow, then `python scripts/send_test_emails.py --url <PRODUCTION_WEBHOOK_URL> --delay 10`. Use `--only E01,E07` for a subset.
 
 ## 4. Prompts
@@ -57,9 +50,8 @@ Final prompts are in `prompts/`:
 - `classification_prompt.md` (v2): the system instruction used in the *Normalize* node
 - `agent_system_prompt.md` (v2): the agent's system message
 
-**[ADD `_v1` versions if you built v1.]**
 
-Model settings: classification at temperature 0 with a JSON response schema; the agent at temperature 0.3. **[CONFIRM the models you actually ran.]** The FAQ and order data are not pasted into prompts; they come from the tools.
+Model settings: classification at temperature 0 with a JSON response schema; the agent at temperature 0.3. 
 
 ## 5. Key decisions and assumptions
 
@@ -71,8 +63,6 @@ Model settings: classification at temperature 0 with a JSON response schema; the
 - **Other assumptions:** today is 20 Nov 2026; damaged, wrong or missing items are treated as high priority and always need a human; keyword lists for damage, medical and opened/used mentions are a first version and **have not been tuned against all 25 emails**.
 
 ## 6. Scaling to 1,000 emails/day
-
-What I expect to break first **[CONFIRM or EDIT after testing]**:
 
 1. Free-tier LLM rate limits and "model overloaded" (503) errors, which I hit while building. Change: a queue plus retries with backoff.
 2. Duplicate tickets when two emails for the same order arrive at the same moment. Change: a lock or a unique check on order ID.
@@ -106,3 +96,7 @@ What I expect to break first **[CONFIRM or EDIT after testing]**:
 - Safer duplicate-ticket handling when two emails for the same order arrive at once.
 - A larger test set than 25 emails, and tuning of the keyword rules against it.
 - Token and cost tracking for the agent call, not just classification.
+
+<img width="1915" height="892" alt="Screenshot 2026-11-25 123203" src="https://github.com/user-attachments/assets/aee2b988-5c22-4d55-9b33-69e0f631afbc" />
+<img width="1915" height="687" alt="Screenshot 2026-11-25 122714" src="https://github.com/user-attachments/assets/03065f37-bd5b-44f5-aad0-7f2acd3cd266" />
+<img width="1917" height="695" alt="Screenshot 2026-11-25 122704" src="https://github.com/user-attachments/assets/8a4ffed1-e2ab-4f35-98f1-e92cf5b76fd3" />
